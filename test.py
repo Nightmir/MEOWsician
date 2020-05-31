@@ -83,6 +83,7 @@ def drawScreen(wList,mode,oldFreq,freq,sel):
                 screen.blit(q,(self.px,self.py))
             elif noteList[i][1]==0:
                 screen.blit(e,(self.px,self.py))
+
             
 
 
@@ -233,19 +234,19 @@ def RHYTHM(song):
         note = findNote(fList,freq)
         if note=="C":
             keyBrights[0]==0
-        else if note[0]=="D":
+        elif note[0]=="D":
             keyBrights[1]=0
-        else if note[0]=="E":
+        elif note[0]=="E":
             keyBrights[2]=0
-        else if note[0]=="F":
+        elif note[0]=="F":
             keyBrights[3]=0
-        else if note[0]=="G":
+        elif note[0]=="G":
             keyBrights[4]=0
-        else if note[0]=="A":
+        elif note[0]=="A":
             keyBrights[5]=0
-        else if note[0]=="B""
+        elif note[0]=="B":
             keyBrights[6]=0
-        else if note[0]=="C":
+        elif note[0]=="C":
             keyBrights[7]=0
         for i in range(8):
             draw.rect(screen,(keyBrights[i],0,0),100,450,100*i,150)
@@ -481,6 +482,8 @@ GREEN=(0,255,0)
 YELLOW=(255,255,0)
 WHITE=(255,255,255)
 
+q=image.load('quarter.png').convert()
+e=image.load('eight.png').convert()
 titleImage=image.load('title.png').convert()
 
 songs=['songs/0.txt','songs/1.txt','songs/2.txt']
