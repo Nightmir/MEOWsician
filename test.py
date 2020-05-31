@@ -3,7 +3,7 @@ import pyaudio
 import wave
 import numpy as np
 from math import*
-
+import sounddevice as sd
 font.init()
 
 class Note(object):
@@ -19,6 +19,9 @@ class Note(object):
         self.py+=1
         if self.py>450:
             self.active=True
+
+        if self.py>600:
+            self.destroy
 
     quarter = 0
     eighth =1
@@ -59,33 +62,75 @@ def record():# returns a list of frequencies that were recorded
     # close the file
     return b"".join(frames)
 
-def drawScreen(background,mode,freq,sel):
+def drawScreen(wList,mode,oldFreq,freq,sel):
+    note = findNote(fList,freq)
+    if note==None:
+        freq=oldFreq
+    else:
+        oldFreq=freq
     if mode=='rhythm':
         ##drawing piano
-        print('RHY')
         draw.rect(screen,(50,50,50),(0,0,800,600))
-        draw.rect(screen,WHITE,(0,450,800,150))
+        draw.rect(screen,WHITE,(0,450,800,150)) 
         for i in range(8):
             draw.rect(screen,BLACK,(i*(100),450,100,150),2)
         for i in range(2):
             draw.rect(screen,BLACK,(75+i*100,450,50,100))
         for i in range(3,6,1):
             draw.rect(screen,BLACK,(75+i*100,450,50,100))
+        for i in range(len(noteList)):
+            if noteList[i][1]==1:
+                screen.blit(q,(self.px,self.py))
+            elif noteList[i][1]==0:
+                screen.blit(e,(self.px,self.py))
+            
+
+
     elif mode=='tuner':
-        print('TUNA')
-        note=freq
+        #print(note)
+        word=tune(note,freq)
+        word=round(word,1)
+
         ##drawing tuner
-        noteWord=Text(note,50,WHITE,255)
+        noteWord=Text(word,50,WHITE,255)
+        noteName=Text(note,50,WHITE,255)
+        flat=Text('Tune down!',35,WHITE,255)
+        sharp=Text('Tune up!',35,WHITE,255)
+        tuned=Text('Tuned!',35,WHITE,255)
+        sele=round(word)//2
+        #print(sel)
+
         draw.rect(screen,(50,50,50),(0,0,800,600))
         draw.circle(screen,WHITE,(400,400),100,5)
         draw.rect(screen,BLACK,(180,150,440,100))
+
         for i in range(10):
             draw.line(screen,WHITE,(220+i*40,150),(220+i*40,250))
         ##blit
-        x,y=center(noteWord,400,400)
+        x,y=center(noteWord,400,450)
         screen.blit(noteWord,(x,y))
+        x,y=center(noteName,400,400)
+        screen.blit(noteName,(x,y))
+        if abs(sele)<1:
+            col=GREEN
+        elif abs(sele)<2:
+            col=YELLOW
+        elif abs(sele)<4:
+            col=ORANGE
+        else:
+            col=RED
+        draw.circle(screen,col,(400+sele*40,200),15)
+        if sele>1:
+            x,y=center(flat,400,50)
+            screen.blit(flat,(x,y))
+        elif sele <-1:
+            x,y=center(sharp,400,50)
+            screen.blit(sharp,(x,y))
+        else:
+            x,y,=center(tuned,400,50)
+            screen.blit(tuned,(x,y))
+
     elif mode=='menu':
-        print('MENU')
         screen.blit(titleImage,(0,0))
         tuner=Text('Tuner',50,WHITE,255)
         rhythm=Text('Rhythm',50,WHITE,255)
@@ -93,13 +138,16 @@ def drawScreen(background,mode,freq,sel):
         screen.blit(tuner,(50,300))
         screen.blit(rhythm,(50,375))
         screen.blit(choose,(50,450))
-        draw.circle(screen,YELLOW,(25,325+sel*75),25)
-
+        draw.circle(screen,YELLOW,(25,325+sel*75),10)
 
     elif mode=='choose':
-        print('CHOOSE')
         draw.rect(screen,(50,50,50),(0,0,800,600))
-        
+        for i in range(len(wList)):
+            screen.blit(wList[i],(100,200+i*50))
+        draw.circle(screen,YELLOW,(50,225+sel*50),10)
+        #screen.blitchoo
+
+
     display.flip()
 
 def Text(txt,size,col,alpha):
@@ -120,7 +168,7 @@ def findNote(frequencyList,freqIn):#finds the corresponding note from the freqen
     lastNote = ["?","8000.1"]
     note =0
     freq = 1
-    logIn = log2(freqIn)
+    logIn = log2(abs(freqIn))
     for frequency in frequencyList:
         lastLog = log2( float(lastNote[freq]))
         currentLog = log2(float(frequency[freq]))
@@ -131,65 +179,121 @@ def findNote(frequencyList,freqIn):#finds the corresponding note from the freqen
                 return lastNote[note]
         else:
             lastNote = frequency
-    return "Your music sounds like Cardi B"
+    return None
+
+def tune(note,freqIn):
+    for frequency in fList:
+        if frequency[0]==note:
+            return float(frequency[1])-float(freqIn)
+    return 1
+
+def tuning(var):
+    print(var)
+    x=0
+    if var>0:
+        var=1
+    else:
+        var=-1
+    for i in range(10):
+        if abs(var)>i and abs(var)<i+1 and x!=0:
+            x=i
+
+    x=var
+    x*=var
+    return x
 
 
 def RHYTHM(song):
-    freq=''
+    freq = ""
+    oldFreq=0.1
     noteList=[]
+    global volumeIn
+    volumeIn = 0
+    oldVol = 0
     music=loadNotes(str(songs[song])) 
     for i in range(len(music)):
         note=Note(music[i][0],music[i][1])
         noteList.append(note)
     running=True
-    fList=loadNotes('frequencies.txt')
-    while running:
-        for evt in event.get():
-            if evt.type==K_RETURN:
-                running=False
-            if evt.type==QUIT:
-                running=False
-                       
-        mx,my=mouse.get_pos()
-        mb=mouse.get_pressed()
-        keys = key.get_pressed()
-
-
-        drawScreen(None,'rhythym',freq,0)
-
-        for i in range(len(music)):
-            noteList[i].fall()
-            if noteList[i].active:
-                testNote()
-        data = record()
-        freq = findFreq(fList,data)
-        note = findNote(fList,freq)
-        print(note)
-
-def TUNER():
-    running=True
-    freq=''
-    fList=loadNotes('frequencies.txt')
+    keyBrights = [255,255,255,255,255,255,255,255]
+    #fList=loadNotes('frequencies.txt')
     while running:
         for evt in event.get():
             if evt.type==KEYDOWN:
                 if evt.key==K_ESCAPE:
                     running=False
             if evt.type==QUIT:
-                running=False
+                quit()
                        
         mx,my=mouse.get_pos()
         mb=mouse.get_pressed()
         keys = key.get_pressed()
-
-        
         data = record()
         freq = findFreq(fList,data)
         note = findNote(fList,freq)
-        drawScreen(None,'tuner',freq,0)
-        print(note)
+        if note=="C":
+            keyBrights[0]==0
+        else if note[0]=="D":
+            keyBrights[1]=0
+        else if note[0]=="E":
+            keyBrights[2]=0
+        else if note[0]=="F":
+            keyBrights[3]=0
+        else if note[0]=="G":
+            keyBrights[4]=0
+        else if note[0]=="A":
+            keyBrights[5]=0
+        else if note[0]=="B""
+            keyBrights[6]=0
+        else if note[0]=="C":
+            keyBrights[7]=0
+        for i in range(8):
+            draw.rect(screen,(keyBrights[i],0,0),100,450,100*i,150)
+        drawScreen(None,'rhythm',oldFreq,freq,0)
+
+        for i in range(len(music)):
+            noteList[i].fall()
+            if noteList[i].active:
+                testNote()
+            if noteList[i].destroy:
+                noteList.pop(i)
+         
+        with sd.Stream(callback=print_sound):
+            sd.sleep(5000)
+
+def TUNER():
+    oldFreq=0.1
+    running=True
+    while running:
+        for evt in event.get():
+            if evt.type==KEYDOWN:
+                if evt.key==K_ESCAPE:
+                    running=False
+            if evt.type==QUIT:
+                quit()
+
+        keys = key.get_pressed()
+
+        data = record()
+        freq = findFreq(fList,data)
+        note = findNote(fList,freq)
+        if note==None:
+            freq=oldFreq
+        else:
+            oldFreq=freq
+
+        drawScreen(None,'tuner',oldFreq,freq,0)
+        #print(note)
 
 def CHOOSE():
+    wordList=[]
+    for i in range(len(songs)):
+        word=Text(songsN[i],50,WHITE,255)
+        wordList.append(word)
+
+    song0=Text('Twinkle Twinkle',50,WHITE,255)
+    song1=Text('Gary had a Little Clam',50,WHITE,255)
+    song2=Text('C Major in C Major',50,WHITE,255)
     running=True
     selection=0
     while running:
@@ -205,17 +309,24 @@ def CHOOSE():
                     sel=True
                 if selection<0:
                     selection=1
-                elif selection>3:
+                elif selection>2:
                     selection=0
             if evt.type==QUIT:
                 quit()
 
         keys = key.get_pressed()
 
-        drawScreen(None,'choose',0,selection)
+        drawScreen(wordList,'choose',oldFreq,500,selection)
+    return selection
         
 
 def MENU():
+    global fList
+    global oldFreq
+    global freq
+    fList=loadNotes('frequencies.txt')
+    oldFreq=0.1
+    freq=0.1
     running=True
     selection=0
     sel=False
@@ -225,15 +336,15 @@ def MENU():
             if evt.type==KEYDOWN:
                 if evt.key==K_ESCAPE:
                     running=False
-                if evt.key==K_LEFT:
+                if evt.key==K_LEFT or evt.key==K_UP:
                     selection-=1
-                if evt.key==K_RIGHT:
+                if evt.key==K_RIGHT or evt.key==K_DOWN:
                     selection+=1
                 if evt.key==K_RETURN:
                     sel=True
                 if selection<0:
-                    selection=1
-                elif selection>3:
+                    selection=2
+                elif selection>2:
                     selection=0
             if evt.type==QUIT:
                 quit()
@@ -242,15 +353,16 @@ def MENU():
         mb=mouse.get_pressed()
         keys = key.get_pressed()
 
-        drawScreen(None,'menu',0,selection)
+        
         if sel:
             sel=False
             if selection==0:
                 TUNER()
             if selection==1:
                 RHYTHM(song)
-            else:
+            if selection==2:
                 song=CHOOSE() 
+        drawScreen(None,'menu',oldFreq,500,selection)
 
 
 def playAudio():
@@ -330,6 +442,18 @@ def loadNotes(file):
         data.append([name,frequency])
     return data
 
+def print_sound(indata, outdata, frames, time, status):
+    global volumeIn
+    oldVol = volumeIn
+    volume_norm = np.linalg.norm(indata)*10
+    volumeIn = int(volume_norm)
+    data = record()
+    deltaVol = volumeIn-oldVol
+    freq = findFreq(fList,data)
+    note = findNote(fList,freq)
+    if deltaVol>0:
+        print(note)
+
 # the file name output you want to record into
 filename = "filename.wav"
 # set the chunk size of 1024 samples
@@ -349,6 +473,7 @@ p = pyaudio.PyAudio()
 width,height=800,600
 screen=display.set_mode((width,height))
 RED=(255,0,0)
+ORANGE=(255,165,0)
 GREY=(127,127,127)
 BLACK=(0,0,0)
 BLUE=(0,0,255)
@@ -358,7 +483,8 @@ WHITE=(255,255,255)
 
 titleImage=image.load('title.png').convert()
 
-songs=['songs/0.txt','Mary had a Little Clam','C Major']
+songs=['songs/0.txt','songs/1.txt','songs/2.txt']
+songsN=['Twinkle Twinkle','Gary had a Little Clam','C Major in C Major']
 
 
 #TUNER()
