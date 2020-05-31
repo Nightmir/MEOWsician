@@ -3,7 +3,24 @@ import wave
 import numpy as np
 from pygame import *
 
-def record():
+class Note(object):
+    def __init__(self,note,length):
+        self.note=note
+        self.length=type
+
+        self.px=0
+        self.py=0
+        self.active=False
+
+    def fall(self):
+        self.py+=1
+        if self.py>450:
+            self.active=True
+
+    quarter = 0
+    eighth =1
+    rest = 2
+def record():# returns a list of frequencies that were recorded
     # open stream object as input & output
     stream = p.open(format=FORMAT,
                     channels=channels,
@@ -14,11 +31,11 @@ def record():
 
 
     frames = []
-    print("Recording...")
-    for i in range(int(44100 / chunk * record_seconds)):
+    #print("Recording...")
+    for i in range(int(44100 / chunk /20)):
         data = stream.read(chunk)
         frames.append(data)
-    print("Finished recording.")
+    #print("Finished recording.")
 
     # stop and close stream
     stream.stop_stream()
@@ -37,14 +54,24 @@ def record():
     # write the frames as bytes
     wf.writeframes(b"".join(frames))
     # close the file
-
+    return b"".join(frames)
 def drawScreen(background,mode):
     #screen.blit(background,(0,0))
-    draw.rect(screen,BLACK,(0,0,800,600))
+    draw.rect(screen,(127,127,127),(0,0,800,600))
+    print(mode)
     if mode=='tuner':
-        draw.rect(screen,WHITE,(0,450,600,150))
-        #for i in range(7):
-        #    draw.rect(screen,BLACK,()
+        ##drawing piano
+        draw.rect(screen,WHITE,(0,450,800,150))
+        for i in range(8):
+            draw.rect(screen,BLACK,(i*(100),450,100,150),2)
+        for i in range(2):
+            draw.rect(screen,BLACK,(75+i*100,450,50,100))
+        for i in range(3,6,1):
+            draw.rect(screen,BLACK,(75+i*100,450,50,100))
+
+
+
+    display.flip()
     
 
 def findNote(frequencyList,freqIn):#finds the corresponding note from the freqency entered, and returns as a String
@@ -56,23 +83,35 @@ def findNote(frequencyList,freqIn):#finds the corresponding note from the freqen
             lastVal = int(float(frequency[1]))
     return "Your music sounds like Cardi B"
 
-def TUNER():
+def TUNER(song):
+    noteList=[]
+    music=loadNotes(str(songs[song])) 
+    for i in range(len(music)):
+        note=Note(music[i][0],music[i][1])
+        noteList.append(note)
     running=True
-    fList=loadFrequency('frequencies.txt')
+    fList=loadNotes('frequencies.txt')
     while running:
         for evt in event.get():
+            if evt.type==K_RETURN:
+                running=False
             if evt.type==QUIT:
                 running=False
                        
         mx,my=mouse.get_pos()
         mb=mouse.get_pressed()
-        
-        record()
-        findFre(fList)
+        keys = key.get_pressed()
+
+
         drawScreen(None,'tuner')
-        display.flip() 
-            
-    quit()    
+
+        for i in range(len(music)):
+            noteList[i].fall()
+            if noteList[i].active:
+                testNote()
+        freq = findFreq(fList)
+        note = findNote(fList,freq)
+        print(note)
 
 
 def playAudio():
@@ -94,7 +133,7 @@ def playAudio():
 
     wf.close()
 
-def findFre(frequencyList):
+def findFreq(frequencyList,dataIn):#returns an int with the current frequency going into the mic
     # open up a wave
     wf = wave.open("filename.wav", 'rb')
     swidth = wf.getsampwidth()
@@ -127,22 +166,21 @@ def findFre(frequencyList):
             x1 = (y2 - y0) * .5 / (2 * y1 - y2 - y0)
             # find the frequency and output it
             thefreq = (which+x1)*RATE/chunk
-            print ("The freq is %f Hz." % (thefreq))
+            #print ("The freq is %f Hz." % (thefreq))
         else:
             thefreq = which*RATE/chunk
-            print ("The freq is %f Hz." % (thefreq))
-        print("Note:"+ findNote(frequencyList,thefreq))
+        return thefreq
         # read some more data
         data = wf.readframes(chunk)
 
 def loop(count):
     if count>0:
         record()
-        findFre()
+        findFreq()
         loop(count-1)
     else:
         return False
-def loadFrequency(file):
+def loadNotes(file):
     data=[]
     with open(file) as f:
         content = f.readlines()
@@ -180,5 +218,8 @@ YELLOW=(255,255,0)
 WHITE=(255,255,255)
 
 
+songs=['songs/0.txt','Mary had a Little Clam','C Major']
 
-TUNER()
+
+TUNER(0)
+drawScreen(0,'tuner')
